@@ -1,9 +1,9 @@
 package generator
 
 import (
-	"testing"
-
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestMethod_Declaration(t *testing.T) {
@@ -128,4 +128,52 @@ func TestMethod_ResultsMap(t *testing.T) {
 		Results: []Param{{Name: "s", Type: "string"}},
 	}
 	assert.Equal(t, "map[string]interface{}{\n\"s\": s}", m.ResultsMap())
+}
+
+func TestMergeMaps(t *testing.T) {
+
+	tests := []struct {
+		name string
+		target string
+		source string
+		want string
+	}{
+		{
+			name:   "AddTopLevelKey",
+			target: `{"Log":{"ctx":"XYZ"}}`,
+			source: `{"Trace":{"id":"target.NetworkElementID"}}`,
+			want:   `{"Log":{"ctx":"XYZ"}, "Trace":{"id":"target.NetworkElementID"}}`,
+		},
+		{
+			name:   "AddSecondLevelKey",
+			target: `{"Log":{"ctx":"XYZ"}}`,
+			source: `{"Log":{"new":"123"}}`,
+			want:   `{"Log":{"ctx":"XYZ", "new": "123"}}`,
+		},
+		{
+			name:   "ReplaceValue",
+			target: `{"Log":{"ctx":"XYZ", "new":"123"}}`,
+			source: `{"Log":{"ctx":"ABC"}}`,
+			want:   `{"Log":{"ctx":"ABC", "new": "123"}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			target := mapFromJson(t, tt.target)
+			source := mapFromJson(t, tt.source)
+			want := mapFromJson(t, tt.want)
+
+			mergeMaps(target, source)
+
+			assert.Equal(t, want, target)
+		})
+	}
+}
+
+func mapFromJson(t *testing.T, source string) map[string] interface{} {
+	m := make(map[string]interface{})
+	err := json.Unmarshal([]byte(source), &m)
+	assert.NoError(t, err, "Unmarshal failed")
+	return m
 }

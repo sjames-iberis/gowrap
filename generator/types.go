@@ -284,23 +284,41 @@ func (m Method) Declaration() string {
 	return m.Name + m.Signature()
 }
 
-
 func captureDocs(field *ast.Field) (docmap map[string]interface{}, err error) {
 	var re = regexp.MustCompile("// *\\+gowrap: *(.*)")
 
-	// TODO Handle multiple doc tags, merging result.
 	if field.Doc != nil {
+		merged := make(map[string]interface{})
 		for _,c := range field.Doc.List {
 			p := re.FindAllStringSubmatch(c.Text, -1)
-			if len(p) == 1 {
+			for px := range p {
 				m := make(map[string]interface{})
-				err = json.Unmarshal([]byte(p[0][1]), &m)
+				err = json.Unmarshal([]byte(p[px][1]), &m)
 				if err != nil {
-					err = errors.Wrapf(err, "could not parse doc tag:%s", p[0][1])
+					err = errors.Wrapf(err, "could not parse doc tag:%s", p[px][1])
+				} else {
+					mergeMaps(merged, m)
 				}
-				return m, err
+			}
+		}
+		return merged, err
+	}
+	return nil, nil
+}
+
+func mergeMaps(target, source map[string] interface{}) {
+
+	for sk,sv := range source {
+		if tv,ok := target[sk]; !ok {
+			target[sk] = sv
+		} else {
+			if tvm,ok := tv.(map[string] interface{}); ok {
+				if svm, ok := sv.(map[string] interface{}); ok {
+					mergeMaps(tvm, svm)
+				}
+			} else {
+				target[sk] = sv
 			}
 		}
 	}
-	return nil, nil
 }
